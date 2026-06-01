@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WSL2 + VSCode + C++ 后端开发环境学习分享</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #667eea;
+      --primary-dark: #4f46e5;
+      --code-bg: #111827;
+      --code-text: #e5e7eb;
+      --tip-bg: #eff6ff;
+      --tip-border: #3b82f6;
+      --warn-bg: #fff7ed;
+      --warn-border: #f97316;
+      --ok-bg: #ecfdf5;
+      --ok-border: #10b981;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: radial-gradient(circle at top left, #eef2ff 0, transparent 35%), var(--bg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      line-height: 1.82;
+      padding: 2rem 1rem;
+    }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border-radius: 28px;
+      padding: 3rem 2.5rem;
+      box-shadow: 0 20px 42px -18px rgba(79, 70, 229, 0.55);
+      margin-bottom: 1.5rem;
+    }
+
+    .hero .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.25);
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      max-width: 780px;
+      color: rgba(255,255,255,0.9);
+      font-size: 1.1rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .toc {
+      position: sticky;
+      top: 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 1.2rem;
+      box-shadow: 0 12px 28px -18px rgba(15, 23, 42, 0.25);
+    }
+
+    .toc h2 {
+      font-size: 1rem;
+      margin-bottom: 0.7rem;
+      color: #0f172a;
+      border: 0;
+      padding: 0;
+    }
+
+    .toc a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      padding: 0.32rem 0;
+      border-radius: 8px;
+    }
+
+    .toc a:hover {
+      color: var(--primary-dark);
+      transform: translateX(2px);
+    }
+
+    main {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 2.25rem;
+      box-shadow: 0 18px 42px -24px rgba(15, 23, 42, 0.35);
+    }
+
+    section {
+      margin-bottom: 2.6rem;
+      scroll-margin-top: 1.2rem;
+    }
+
+    section:last-child {
+      margin-bottom: 0;
+    }
+
+    h2 {
+      color: #0f172a;
+      font-size: 1.55rem;
+      line-height: 1.35;
+      margin: 0 0 1rem;
+      padding-left: 0.95rem;
+      border-left: 5px solid var(--primary);
+    }
+
+    h3 {
+      color: #334155;
+      font-size: 1.18rem;
+      margin: 1.35rem 0 0.75rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+      font-size: 1.04rem;
+    }
+
+    ul, ol {
+      margin: 0.8rem 0 1.2rem 1.4rem;
+      font-size: 1.03rem;
+    }
+
+    li {
+      margin-bottom: 0.45rem;
+    }
+
+    .lead-card,
+    .tip,
+    .warning,
+    .success {
+      border-radius: 16px;
+      padding: 1rem 1.15rem;
+      margin: 1rem 0 1.35rem;
+    }
+
+    .lead-card {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+    }
+
+    .tip {
+      background: var(--tip-bg);
+      border-left: 4px solid var(--tip-border);
+    }
+
+    .warning {
+      background: var(--warn-bg);
+      border-left: 4px solid var(--warn-border);
+    }
+
+    .success {
+      background: var(--ok-bg);
+      border-left: 4px solid var(--ok-border);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin: 1rem 0 1.5rem;
+    }
+
+    .mini-card {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+    }
+
+    .mini-card strong {
+      display: block;
+      color: #0f172a;
+      margin-bottom: 0.35rem;
+    }
+
+    .mini-card span {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.6rem;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: table;
+    }
+
+    th,
+    td {
+      text-align: left;
+      vertical-align: top;
+      padding: 0.78rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      background: #f1f5f9;
+      color: #dc2626;
+      border-radius: 6px;
+      padding: 0.18rem 0.38rem;
+      font-size: 0.94em;
+      font-family: "Consolas", "Monaco", "Cascadia Code", monospace;
+    }
+
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 16px;
+      padding: 1rem 1.1rem;
+      overflow-x: auto;
+      margin: 1rem 0 1.4rem;
+      font-size: 0.96rem;
+      line-height: 1.7;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border-radius: 0;
+      font-size: inherit;
+    }
+
+    .tree {
+      color: #cbd5e1;
+    }
+
+    .checklist li {
+      list-style: none;
+      position: relative;
+      margin-left: 0.3rem;
+      padding-left: 1.55rem;
+    }
+
+    .checklist li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: #059669;
+      font-weight: 800;
+    }
+
+    .footer {
+      margin-top: 1.5rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+      text-align: center;
+    }
+
+    .back-btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.78rem 1.45rem;
+      background: var(--primary);
+      color: white;
+      text-decoration: none;
+      border-radius: 999px;
+      transition: all 0.25s ease;
+    }
+
+    .back-btn:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 18px rgba(102, 126, 234, 0.32);
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .toc {
+        position: static;
+      }
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 1rem 0.8rem;
+      }
+      .hero,
+      main {
+        padding: 1.4rem;
+        border-radius: 20px;
+      }
+      table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      h2 {
+        font-size: 1.28rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="tag">学习分享 · Linux 开发环境 · C++ 后端</div>
+      <h1>WSL2 + VSCode + C++ 后端开发环境搭建</h1>
+      <p>这是一篇面向初学者的科普型学习笔记：先解释命令、路径和软件包是什么，再一步步搭建 WSL2、VSCode、C++、CMake、Redis、MySQL、Protobuf 等后端开发基础环境。</p>
+    </header>
+
+    <div class="layout">
+      <aside class="toc">
+        <h2>目录</h2>
+        <a href="#intro">0. 先看懂本文会用到什么</a>
+        <a href="#commands">1. Linux 命令速查</a>
+        <a href="#packages">2. 软件包与工具科普</a>
+        <a href="#why-wsl2">3. 为什么选 WSL2</a>
+        <a href="#workspace">4. 进入正确工作目录</a>
+        <a href="#apt">5. 修复 apt 404 并安装工具</a>
+        <a href="#vscode">6. VSCode 连接 WSL</a>
+        <a href="#cpp">7. 运行第一个 C++ 程序</a>
+        <a href="#cmake">8. 引入 CMake</a>
+        <a href="#structure">9. 整理项目结构</a>
+        <a href="#backend">10. 安装后端依赖</a>
+        <a href="#roadmap">11. 后续开发路线</a>
+        <a href="#check">12. 验收标准</a>
+      </aside>
+
+      <main>
+        <section id="intro">
+          <h2>0. 先看懂本文会用到什么</h2>
+          <div class="lead-card">
+            <p><strong>一句话目标：</strong>在 Windows 上用 WSL2 跑一个接近真实 Linux 服务器的 Ubuntu 开发环境，然后用 VSCode 写 C++ 后端项目。</p>
+            <p><strong>适用方向：</strong>C++ HTTP 服务、IM 长连接、MySQL、Redis、Protobuf、Drogon 等 Linux 后端项目。</p>
+          </div>
+
+          <div class="grid">
+            <div class="mini-card">
+              <strong>WSL2</strong>
+              <span>Windows 里的 Linux 环境，适合写服务端代码。</span>
+            </div>
+            <div class="mini-card">
+              <strong>Ubuntu</strong>
+              <span>常见 Linux 发行版，服务器和开发环境都很常用。</span>
+            </div>
+            <div class="mini-card">
+              <strong>VSCode Remote - WSL</strong>
+              <span>让 VSCode 直接进入 Ubuntu 文件系统和终端。</span>
+            </div>
+          </div>
+
+          <h3>路径概念先搞懂</h3>
+          <table>
+            <thead>
+              <tr><th>写法</th><th>含义</th><th>例子</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>~</code></td><td>当前 Linux 用户的家目录</td><td><code>/home/wqf</code></td></tr>
+              <tr><td><code>/home/wqf/workspace</code></td><td>推荐的项目工作目录，位于 Linux 文件系统</td><td>C++ 编译更快、权限更简单</td></tr>
+              <tr><td><code>/mnt/c/...</code></td><td>WSL 里访问 Windows C 盘的路径</td><td>可以读写 Windows 文件，但不推荐放 C++ 项目</td></tr>
+              <tr><td><code>.</code></td><td>当前目录</td><td><code>code .</code> 表示用 VSCode 打开当前目录</td></tr>
+              <tr><td><code>..</code></td><td>上一级目录</td><td><code>cmake ..</code> 表示从 build 目录回看项目根目录</td></tr>
+            </tbody>
+          </table>
+
+          <div class="tip">
+            <strong>核心原则：</strong>项目代码尽量放在 Linux 文件系统里，例如 <code>/home/wqf/workspace</code>，不要放在 <code>/mnt/c/Users/...</code>。WSL2 访问 Windows 文件系统会更慢，C++ 编译时尤其明显。
+          </div>
+        </section>
+
+        <section id="commands">
+          <h2>1. Linux 命令速查：先科普，再操作</h2>
+          <p>下面这些命令会贯穿全文。初学者不要急着背，先知道它们“负责什么”。</p>
+          <table>
+            <thead>
+              <tr><th>命令</th><th>作用</th><th>本文中的用法</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>cd</code></td><td>切换目录</td><td><code>cd ~/workspace</code></td></tr>
+              <tr><td><code>pwd</code></td><td>显示当前所在目录</td><td>确认自己是否在 <code>/home/wqf</code></td></tr>
+              <tr><td><code>mkdir</code></td><td>创建文件夹</td><td><code>mkdir echo-server</code></td></tr>
+              <tr><td><code>mkdir -p</code></td><td>递归创建文件夹，已存在也不报错</td><td><code>mkdir -p src include docs scripts</code></td></tr>
+              <tr><td><code>touch</code></td><td>创建空文件</td><td><code>touch main.cpp</code></td></tr>
+              <tr><td><code>mv</code></td><td>移动或重命名文件</td><td><code>mv main.cpp src/main.cpp</code></td></tr>
+              <tr><td><code>rm -rf</code></td><td>强制递归删除目录</td><td><code>rm -rf build</code>，慎用</td></tr>
+              <tr><td><code>sudo</code></td><td>以 Linux 管理员权限执行命令</td><td><code>sudo apt update</code></td></tr>
+              <tr><td><code>apt clean</code></td><td>清理 apt 下载缓存</td><td>修复软件源缓存异常</td></tr>
+              <tr><td><code>apt update</code></td><td>更新软件包索引</td><td>安装软件前通常先执行</td></tr>
+              <tr><td><code>apt upgrade -y</code></td><td>升级已安装软件包，<code>-y</code> 自动确认</td><td>保持系统依赖较新</td></tr>
+              <tr><td><code>apt install -y</code></td><td>安装软件包，<code>-y</code> 自动确认</td><td>安装 g++、cmake、git 等工具</td></tr>
+              <tr><td><code>sed -i</code></td><td>直接修改文件内容</td><td>替换 apt 软件源地址</td></tr>
+              <tr><td><code>g++</code></td><td>C++ 编译器</td><td><code>g++ main.cpp -o app</code></td></tr>
+              <tr><td><code>./app</code></td><td>运行当前目录下的可执行文件</td><td>运行编译出的 C++ 程序</td></tr>
+              <tr><td><code>cmake ..</code></td><td>生成项目构建配置</td><td>在 <code>build</code> 目录里执行</td></tr>
+              <tr><td><code>make</code></td><td>按照构建配置编译项目</td><td>生成 <code>echo-server</code> 可执行文件</td></tr>
+              <tr><td><code>code .</code></td><td>用 VSCode 打开当前目录</td><td>从 WSL 中打开项目</td></tr>
+              <tr><td><code>service</code></td><td>启动或管理系统服务</td><td><code>sudo service redis-server start</code></td></tr>
+              <tr><td><code>redis-cli ping</code></td><td>测试 Redis 是否可用</td><td>返回 <code>PONG</code> 表示正常</td></tr>
+              <tr><td><code>protoc --version</code></td><td>查看 Protobuf 编译器版本</td><td>验证 Protobuf 安装成功</td></tr>
+            </tbody>
+          </table>
+
+          <h3>常用 WSL 命令也要认识</h3>
+          <table>
+            <thead>
+              <tr><th>命令</th><th>作用</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>wsl -l -v</code></td><td>查看已安装的 Linux 发行版及 WSL 版本。</td></tr>
+              <tr><td><code>wsl -d Ubuntu-22.04</code></td><td>启动指定 Ubuntu 发行版。</td></tr>
+              <tr><td><code>wsl --shutdown</code></td><td>关闭所有正在运行的 WSL 实例。</td></tr>
+              <tr><td><code>wsl --set-version Ubuntu-22.04 2</code></td><td>把指定发行版转换为 WSL2。</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="packages">
+          <h2>2. 软件包与工具科普</h2>
+          <p>这一节先把后面会安装的软件包讲清楚。知道它们是什么，排错时才不会慌。</p>
+
+          <h3>基础 C++ 开发工具</h3>
+          <table>
+            <thead>
+              <tr><th>软件包/工具</th><th>它是什么</th><th>为什么需要</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>build-essential</code></td><td>Ubuntu 的 C/C++ 基础编译工具集合</td><td>会安装 gcc、g++、make 等常用工具。</td></tr>
+              <tr><td><code>gcc</code></td><td>C 编译器</td><td>编译 C 语言代码，也常作为基础工具链的一部分。</td></tr>
+              <tr><td><code>g++</code></td><td>C++ 编译器</td><td>编译 <code>.cpp</code> 文件，生成可执行程序。</td></tr>
+              <tr><td><code>gdb</code></td><td>C/C++ 调试器</td><td>用于定位崩溃、断点调试、查看变量。</td></tr>
+              <tr><td><code>cmake</code></td><td>现代 C++ 构建系统生成器</td><td>管理多文件、多依赖项目，避免长期手写 <code>g++</code> 命令。</td></tr>
+              <tr><td><code>make</code></td><td>构建执行工具</td><td>读取构建规则并执行编译。</td></tr>
+              <tr><td><code>git</code></td><td>版本控制工具</td><td>记录代码历史、回滚修改、多人协作。</td></tr>
+              <tr><td><code>curl</code> / <code>wget</code></td><td>命令行下载与请求工具</td><td>下载依赖、测试 HTTP 接口。</td></tr>
+              <tr><td><code>zip</code> / <code>unzip</code></td><td>压缩包处理工具</td><td>打包、解压项目或依赖文件。</td></tr>
+              <tr><td><code>pkg-config</code></td><td>库信息查询工具</td><td>帮助 CMake 或编译器找到系统库的位置和参数。</td></tr>
+            </tbody>
+          </table>
+
+          <h3>后端项目依赖</h3>
+          <table>
+            <thead>
+              <tr><th>软件包/工具</th><th>它是什么</th><th>后端里用来做什么</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>protobuf-compiler</code></td><td>Protobuf 编译器，命令是 <code>protoc</code></td><td>把 <code>.proto</code> 协议文件生成 C++ 代码。</td></tr>
+              <tr><td><code>libprotobuf-dev</code></td><td>Protobuf C++ 开发库</td><td>让 C++ 项目能链接并使用 Protobuf。</td></tr>
+              <tr><td><code>mysql-server</code></td><td>MySQL 数据库服务端</td><td>保存用户、帖子、好友、消息等数据。</td></tr>
+              <tr><td><code>libmysqlclient-dev</code></td><td>MySQL C/C++ 开发库</td><td>让 C++ 程序能连接 MySQL。</td></tr>
+              <tr><td><code>redis-server</code></td><td>Redis 内存数据库服务端</td><td>缓存、会话、在线状态、消息队列辅助等。</td></tr>
+              <tr><td><code>redis-cli</code></td><td>Redis 命令行客户端</td><td>用 <code>ping</code> 快速检查 Redis 服务是否正常。</td></tr>
+              <tr><td><code>Drogon</code></td><td>C++ HTTP/Web 框架</td><td>后续用来写 <code>/ping</code>、注册登录、Feed 接口等。</td></tr>
+            </tbody>
+          </table>
+
+          <div class="warning">
+            <strong>学习建议：</strong>不要一开始就把所有依赖都装上并同时排错。先跑通 WSL2 + VSCode + g++ + CMake，再逐步接入 Redis、MySQL、Protobuf 和 Drogon。
+          </div>
+        </section>
+
+        <section id="why-wsl2">
+          <h2>3. 为什么选择 WSL2，而不是虚拟机或纯 Windows</h2>
+          <ul>
+            <li>目标是开发 Linux C++ 服务端，而不是 Windows 桌面程序；最终部署环境大概率也是 Ubuntu/Linux。</li>
+            <li>WSL2 不需要 ISO 镜像、不需要 VirtualBox/VMware，也不需要完整 Linux 桌面，更适合轻量开发。</li>
+            <li>传统虚拟机更像一台完整电脑，但网络、共享目录、性能和配置复杂度会更高。</li>
+            <li>Visual Studio 更偏 Windows C++、Win32、.NET、MFC；本项目需要 gcc、cmake、epoll、Redis、MySQL、Protobuf 等 Linux 生态，更推荐 VSCode + Remote WSL。</li>
+          </ul>
+        </section>
+
+        <section id="workspace">
+          <h2>4. 进入正确工作目录</h2>
+          <p>如果终端路径显示在 <code>/mnt/c/WINDOWS/system32</code>，说明你还在 Windows 文件系统里，不适合在这里写 Linux C++ 项目。</p>
+          <pre><code>cd ~
+pwd</code></pre>
+          <p>正确结果应该类似：</p>
+          <pre><code>/home/wqf</code></pre>
+          <p>创建长期工作目录：</p>
+          <pre><code>mkdir -p ~/workspace
+cd ~/workspace</code></pre>
+          <div class="success">
+            <strong>为什么这样做：</strong><code>~/workspace</code> 位于 Linux 文件系统，编译更快、权限更简单、路径更稳定，适合长期存放 C++ 工程。
+          </div>
+        </section>
+
+        <section id="apt">
+          <h2>5. 修复 apt 404 问题并安装基础工具</h2>
+          <h3>5.1 处理 apt 404</h3>
+          <p>如果遇到 <code>404 Not Found</code>，通常不是系统坏了，而是 apt 软件源索引过期。先清理并更新索引：</p>
+          <pre><code>sudo apt clean
+sudo apt update
+sudo apt upgrade -y --fix-missing</code></pre>
+
+          <p>如果仍然报 404，可以换成国内镜像源，例如阿里云镜像：</p>
+          <pre><code>sudo sed -i 's|http://security.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu|g' /etc/apt/sources.list
+sudo sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu|g' /etc/apt/sources.list
+sudo apt clean
+sudo apt update
+sudo apt upgrade -y</code></pre>
+
+          <h3>5.2 安装基础 C++ 开发工具</h3>
+          <pre><code>sudo apt install -y \
+  build-essential \
+  gdb \
+  cmake \
+  git \
+  curl \
+  wget \
+  zip \
+  unzip \
+  pkg-config</code></pre>
+
+          <h3>5.3 验证基础工具</h3>
+          <pre><code>g++ --version
+cmake --version
+git --version</code></pre>
+          <p>如果这些命令都能输出版本号，说明最基础的开发环境已经可用。</p>
+        </section>
+
+        <section id="vscode">
+          <h2>6. 安装 VSCode 插件并连接 WSL</h2>
+          <h3>6.1 安装插件</h3>
+          <ul>
+            <li><strong>Remote - WSL：</strong>让 VSCode 直接连接 WSL Ubuntu。</li>
+            <li><strong>C/C++：</strong>提供 C++ 语法高亮、补全、跳转和调试能力。</li>
+            <li><strong>CMake Tools：</strong>后续用 CMake 构建项目时更方便。</li>
+            <li><strong>CMake：</strong>提供 <code>CMakeLists.txt</code> 语法支持。</li>
+          </ul>
+
+          <h3>6.2 从 WSL 中打开 VSCode</h3>
+          <pre><code>cd ~/workspace
+code .</code></pre>
+          <p>第一次执行会安装 VSCode Server。成功后，VSCode 左下角应显示 <strong>WSL: Ubuntu-22.04</strong>。</p>
+
+          <h3>6.3 打开终端</h3>
+          <p>在 VSCode 顶部菜单点击“终端 → 新建终端”，或使用快捷键 <code>Ctrl + `</code>。终端里应看到类似：</p>
+          <pre><code>wqf@DESKTOP:~/workspace$</code></pre>
+          <p>这说明当前 VSCode 终端已经进入 Linux 环境。</p>
+        </section>
+
+        <section id="cpp">
+          <h2>7. 创建并运行第一个 C++ 程序</h2>
+          <h3>7.1 创建项目目录和文件</h3>
+          <pre><code>cd ~/workspace
+mkdir echo-server
+cd echo-server
+touch main.cpp</code></pre>
+          <p><code>mkdir</code> 创建项目目录，<code>touch</code> 创建源文件。项目名 <code>echo-server</code> 可以对应后续的 Echo 信息流或 IM 后端项目。</p>
+
+          <h3>7.2 写入 main.cpp</h3>
+          <pre><code>#include &lt;iostream&gt;
+
+int main() {
+  std::cout &lt;&lt; "Echo Server started." &lt;&lt; std::endl;
+  return 0;
+}</code></pre>
+
+          <h3>7.3 手动编译运行</h3>
+          <pre><code>g++ main.cpp -o app
+./app</code></pre>
+          <p>看到下面输出，就说明编译器、终端、文件系统和 VSCode 都能正常工作：</p>
+          <pre><code>Echo Server started.</code></pre>
+        </section>
+
+        <section id="cmake">
+          <h2>8. 引入 CMake：从玩具程序走向工程项目</h2>
+          <p>真实 C++ 项目通常有多个源文件、头文件和第三方库。如果一直手写 <code>g++</code> 命令，项目稍大就会失控，所以要尽早引入 CMake。</p>
+
+          <h3>8.1 创建 CMakeLists.txt</h3>
+          <pre><code>touch CMakeLists.txt</code></pre>
+          <p>写入以下内容：</p>
+          <pre><code>cmake_minimum_required(VERSION 3.16)
+project(echo-server)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_executable(echo-server main.cpp)</code></pre>
+
+          <h3>8.2 用 CMake 构建</h3>
+          <pre><code>mkdir build
+cd build
+cmake ..
+make
+./echo-server</code></pre>
+          <p><code>build</code> 目录用于存放中间产物，保持项目根目录干净；<code>cmake ..</code> 生成构建配置，<code>make</code> 执行编译。</p>
+        </section>
+
+        <section id="structure">
+          <h2>9. 整理项目结构</h2>
+          <p>不要把所有代码都堆在 <code>main.cpp</code>。中型后端系统从一开始就应该建立清晰目录。</p>
+          <pre><code>cd ~/workspace/echo-server
+mkdir -p src include docs scripts
+mv main.cpp src/main.cpp</code></pre>
+
+          <table>
+            <thead>
+              <tr><th>目录</th><th>用途</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>src/</code></td><td>source 缩写，存放 <code>.cpp</code> 源代码文件。</td></tr>
+              <tr><td><code>include/</code></td><td>存放 <code>.h</code> / <code>.hpp</code> 头文件。</td></tr>
+              <tr><td><code>docs/</code></td><td>存放项目文档、接口说明、设计记录。</td></tr>
+              <tr><td><code>scripts/</code></td><td>存放脚本工具，例如启动、清理、部署脚本。</td></tr>
+            </tbody>
+          </table>
+
+          <p>推荐初始结构：</p>
+          <pre class="tree"><code>echo-server/
+├── CMakeLists.txt
+├── src/
+│   └── main.cpp
+├── include/
+├── docs/
+└── scripts/</code></pre>
+
+          <h3>修改 CMakeLists.txt</h3>
+          <pre><code>cmake_minimum_required(VERSION 3.16)
+project(echo-server)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_executable(echo-server
+  src/main.cpp
+)
+
+target_include_directories(echo-server PRIVATE include)</code></pre>
+
+          <h3>重新构建</h3>
+          <pre><code>rm -rf build
+mkdir build
+cd build
+cmake ..
+make
+./echo-server</code></pre>
+        </section>
+
+        <section id="backend">
+          <h2>10. 安装后端项目所需依赖</h2>
+          <p>基础环境跑通后，再安装 Protobuf、MySQL、Redis。不要一开始全堆上去，否则出错时很难定位。</p>
+          <pre><code>sudo apt install -y \
+  protobuf-compiler \
+  libprotobuf-dev \
+  mysql-server \
+  redis-server \
+  libmysqlclient-dev</code></pre>
+
+          <h3>验证 Protobuf</h3>
+          <pre><code>protoc --version</code></pre>
+
+          <h3>验证 Redis</h3>
+          <pre><code>sudo service redis-server start
+redis-cli ping</code></pre>
+          <p>如果返回：</p>
+          <pre><code>PONG</code></pre>
+          <p>说明 Redis 正常。</p>
+
+          <div class="tip">
+            <strong>MySQL 建议：</strong>当前阶段先安装即可，数据库表设计可以等注册登录、帖子、好友、消息等业务模块开始时再做，不要过早设计十几张表。
+          </div>
+        </section>
+
+        <section id="roadmap">
+          <h2>11. 为什么现在先不做 IM，以及后续路线</h2>
+          <p>IM 长连接涉及 TCP、心跳、断线、连接映射、离线消息、ACK、Protobuf 编解码和并发安全，是项目中最复杂的模块之一。正确顺序是：先 HTTP，再数据库，再业务闭环，最后 TCP IM。</p>
+
+          <table>
+            <thead>
+              <tr><th>顺序</th><th>任务</th><th>原因</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td>确认 WSL2 + VSCode + gcc + cmake 可用</td><td>保证开发环境稳定，避免后续问题混在一起。</td></tr>
+              <tr><td>2</td><td>搭建 CMake 项目骨架</td><td>让项目结构可维护，也方便理解后续代码修改。</td></tr>
+              <tr><td>3</td><td>安装并测试 Drogon HTTP 服务</td><td>先做最简单的 <code>/ping</code> 接口，证明 HTTP 服务可运行。</td></tr>
+              <tr><td>4</td><td>实现用户注册/登录</td><td>这是帖子、好友、聊天的身份基础。</td></tr>
+              <tr><td>5</td><td>接入 MySQL</td><td>把用户、帖子、好友、消息持久化。</td></tr>
+              <tr><td>6</td><td>实现发帖和 Feed 拉取</td><td>先跑通 Echo 信息流主链路。</td></tr>
+              <tr><td>7</td><td>实现好友申请/通过</td><td>Feed 和 IM 都依赖关系链。</td></tr>
+              <tr><td>8</td><td>最后实现 TCP IM</td><td>在业务基础稳定后，再做长连接、心跳和离线消息。</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="check">
+          <h2>12. 当前阶段的验收标准</h2>
+          <ul class="checklist">
+            <li>VSCode 左下角显示 <strong>WSL: Ubuntu-22.04</strong>。</li>
+            <li>终端位于 <code>/home/wqf/workspace</code> 或其子目录，而不是 <code>/mnt/c/...</code>。</li>
+            <li><code>g++ --version</code>、<code>cmake --version</code>、<code>git --version</code> 都能输出版本。</li>
+            <li><code>main.cpp</code> 可以通过 <code>g++</code> 编译并运行。</li>
+            <li><code>CMakeLists.txt</code> 可以成功生成 <code>echo-server</code> 可执行文件。</li>
+            <li><code>redis-cli ping</code> 可以返回 <code>PONG</code>。</li>
+          </ul>
+
+          <div class="success">
+            <strong>学习总结：</strong>本页不是单纯罗列命令，而是按照“先理解工具 → 再搭建环境 → 最后验证结果”的顺序组织。只要每个验收项都通过，就可以进入 Drogon HTTP 服务和业务接口开发阶段。
+          </div>
+
+          <a href="index.html" class="back-btn">← 返回我的主页</a>
+        </section>
+      </main>
+    </div>
+
+    <div class="footer">整理自 WSL2 + VSCode + C++ 后端开发环境搭建笔记 · 适合作为学习分享网页发布</div>
+  </div>
+</body>
+</html>

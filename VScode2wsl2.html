@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VS Code 连接 WSL2 Linux 环境 | 秋风的技术笔记</title>
+  <!-- 与主页/wsl2-setup.html 视觉风格完全统一 -->
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #f5f7fb;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      color: #1e2a3e;
+      line-height: 1.8;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 850px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 2.5rem;
+      border-radius: 24px;
+      box-shadow: 0 10px 30px -8px rgba(0,0,0,0.08);
+    }
+    h1 {
+      color: #0f172a;
+      font-size: 1.8rem;
+      margin-bottom: 2rem;
+      border-left: 5px solid #667eea;
+      padding-left: 1.2rem;
+    }
+    h2 {
+      color: #1e293b;
+      font-size: 1.4rem;
+      margin: 1.8rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    h3 {
+      font-size: 1.1rem;
+      margin: 1.5rem 0 0.8rem;
+      color: #334155;
+    }
+    p {
+      margin-bottom: 1rem;
+      font-size: 1.05rem;
+    }
+    ul, ol {
+      margin: 1rem 0 1.5rem 2rem;
+      font-size: 1.05rem;
+    }
+    li {
+      margin-bottom: 0.6rem;
+    }
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 1rem 1.2rem;
+      border-radius: 12px;
+      overflow-x: auto;
+      margin: 1rem 0 1.5rem;
+      font-family: "Consolas", "Monaco", monospace;
+    }
+    code {
+      background: #f1f5f9;
+      padding: 0.2rem 0.4rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      color: #dc2626;
+    }
+    .tip {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 1rem 1.2rem;
+      border-radius: 8px;
+      margin: 1.5rem 0;
+    }
+    .warning {
+      background: #fff7ed;
+      border-left: 4px solid #f97316;
+      padding: 1rem 1.2rem;
+      border-radius: 8px;
+      margin: 1.5rem 0;
+    }
+    .step-img {
+      width: 100%;
+      border-radius: 12px;
+      margin: 1rem 0;
+      border: 1px solid #e2e8f0;
+    }
+    .back-btn {
+      display: inline-block;
+      margin-top: 2rem;
+      padding: 0.8rem 1.6rem;
+      background: #667eea;
+      color: white;
+      text-decoration: none;
+      border-radius: 60px;
+      transition: all 0.3s ease;
+    }
+    .back-btn:hover {
+      background: #5a6edb;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    @media (max-width: 640px) {
+      .container {
+        padding: 1.5rem;
+        border-radius: 16px;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      h2 {
+        font-size: 1.2rem;
+      }
+      pre {
+        padding: 0.8rem;
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>VS Code 连接 WSL2 Linux 环境（教学版）</h1>
+
+    <div class="tip">
+      <strong>前置要求：</strong>已完成 WSL2 安装（参考「WSL2 搭建 Linux 开发环境」教程），且 VS Code 已安装在 Windows 系统中。<br>
+      <strong>核心优势：</strong>在 Windows 下用 VS Code 操作 Linux 环境，兼顾 Windows 易用性和 Linux 开发环境。
+    </div>
+
+    <h2>一、步骤 1：安装 WSL 扩展（核心）</h2>
+    <ol>
+      <li>打开 VS Code，点击左侧边栏「扩展」图标（快捷键 <code>Ctrl+Shift+X</code>）；</li>
+      <li>在搜索框输入 <code>WSL</code>，找到微软官方的「WSL」扩展（作者：Microsoft，下载量最高）；</li>
+      <li>点击「安装」，安装完成后无需重启 VS Code（扩展自动生效）。</li>
+    </ol>
+    <p><strong>扩展作用：</strong>实现 VS Code 与 WSL2 的通信，让 VS Code 能识别并连接 WSL 环境。</p>
+
+    <h2>二、步骤 2：连接 WSL2 环境（3种方式，任选其一）</h2>
+
+    <h3>方式 1：从 VS Code 直接连接（推荐）</h3>
+    <ol>
+      <li>打开 VS Code，按下快捷键 <code>Ctrl+Shift+P</code> 打开「命令面板」；</li>
+      <li>输入 <code>WSL: Connect to WSL</code>，回车执行；</li>
+      <li>在弹出的列表中选择已安装的 WSL 发行版（如 Ubuntu-22.04）；</li>
+      <li>等待几秒，VS Code 左下角会显示「WSL: Ubuntu」，表示连接成功。</li>
+    </ol>
+
+    <h3>方式 2：从 WSL 终端启动 VS Code</h3>
+    <ol>
+      <li>打开 WSL2 终端（Ubuntu），进入要开发的目录（如 <code>cd ~/projects</code>）；</li>
+      <li>执行命令 <code>code .</code>（注意末尾的点，表示打开当前目录）；</li>
+      <li>VS Code 会自动启动并连接到 WSL 环境，同时打开该目录。</li>
+    </ol>
+
+    <h3>方式 3：通过远程资源管理器连接</h3>
+    <ol>
+      <li>安装「Remote - Explorer」扩展（微软官方）；</li>
+      <li>点击左侧边栏「远程资源管理器」图标；</li>
+      <li>在「WSL Targets」下找到你的 Ubuntu 发行版，右键选择「Connect to WSL in New Window」；</li>
+      <li>新窗口会自动连接到 WSL 环境。</li>
+    </ol>
+
+    <div class="tip">
+      <strong>验证连接成功：</strong><br>
+      1. VS Code 左下角显示「WSL: 发行版名称」；<br>
+      2. 打开终端（<code>Ctrl+`</code>），终端提示符为 Linux 风格（如 <code>username@DESKTOP:~$</code>）；<br>
+      3. 新建文件，保存路径为 <code>/home/username/</code>（Linux 路径）。
+    </div>
+
+    <h2>三、步骤 3：安装 Linux 开发扩展（按需）</h2>
+    <p>连接 WSL 后，安装的扩展分为「Windows 扩展」和「WSL 扩展」，需为 WSL 安装开发所需扩展：</p>
+    <ol>
+      <li>在 VS Code 扩展面板中，已安装的扩展右侧会显示「Install in WSL: Ubuntu」；</li>
+      <li>为 WSL 安装以下常用扩展（以 C++ 开发为例）：
+        <ul>
+          <li>C/C++（微软官方，语法高亮/调试/编译）；</li>
+          <li>CMake（CMake 配置支持）；</li>
+          <li>CMake Tools（CMake 编译调试）；</li>
+          <li>Code Runner（快速运行代码）；</li>
+          <li>Chinese (Simplified)（中文语言包，可选）。</li>
+        </ul>
+      </li>
+    </ol>
+    <p><strong>注意：</strong>扩展需分别安装到 Windows 和 WSL 环境，仅安装在 Windows 下无法在 WSL 中使用。</p>
+
+    <h2>四、步骤 4：实战测试（编写并运行 C++ 代码）</h2>
+    <ol>
+      <li>在 WSL 中新建目录：<code>mkdir ~/cpp-demo && cd ~/cpp-demo</code>；</li>
+      <li>在 VS Code 中打开该目录（<code>code .</code>）；</li>
+      <li>新建文件 <code>main.cpp</code>，输入以下代码：</li>
+    </ol>
+    <pre>
+#include &lt;iostream&gt;
+using namespace std;
+
+int main() {
+    cout &lt;&lt; "Hello WSL2!" &lt;&lt; endl;
+    cout &lt;&lt; "当前环境：" &lt;&lt; __linux__ ? "Linux (WSL2)" : "Windows" &lt;&lt; endl;
+    return 0;
+}</pre>
+    <ol start="4">
+      <li>打开 VS Code 终端（<code>Ctrl+`</code>），执行编译命令：<code>g++ main.cpp -o demo</code>；</li>
+      <li>运行程序：<code>./demo</code>；</li>
+      <li>终端输出 <code>Hello WSL2! 当前环境：Linux (WSL2)</code>，说明环境正常。</li>
+    </ol>
+
+    <h2>五、常见问题与排查（教学重点）</h2>
+    <div class="warning">
+      <strong>问题 1：VS Code 提示「无法连接到 WSL」</strong><br>
+      排查方案：<br>
+      1. 确认 WSL2 已正常启动（打开 Ubuntu 终端能正常使用）；<br>
+      2. 以管理员身份重启 VS Code；<br>
+      3. 执行命令 <code>wsl --shutdown</code> 关闭 WSL，重新启动后再连接。
+    </div>
+
+    <div class="warning">
+      <strong>问题 2：<code>code .</code> 命令提示「找不到」</strong><br>
+      排查方案：<br>
+      1. 在 VS Code 中按下 <code>Ctrl+Shift+P</code>，输入 <code>Shell Command: Install 'code' command in PATH</code>；<br>
+      2. 执行该命令后，重启 WSL 终端即可。
+    </div>
+
+    <div class="warning">
+      <strong>问题 3：代码编译失败（提示 gcc 未找到）</strong><br>
+      排查方案：<br>
+      1. 在 WSL 终端执行 <code>gcc --version</code>，确认是否安装；<br>
+      2. 未安装则执行 <code>sudo apt install gcc g++ -y</code> 安装。
+    </div>
+
+    <div class="warning">
+      <strong>问题 4：中文乱码</strong><br>
+      排查方案：<br>
+      1. 在 VS Code 中按下 <code>Ctrl+,</code> 打开设置，搜索 <code>files.encoding</code>；<br>
+      2. 设置为 <code>UTF-8</code>；<br>
+      3. 在 WSL 终端执行 <code>export LC_ALL=zh_CN.UTF-8</code>。
+    </div>
+
+    <h2>六、实用技巧（教学拓展）</h2>
+    <ul>
+      <li>文件互访：Windows 路径在 WSL 中为 <code>/mnt/c/Users/你的用户名/</code>，WSL 路径在 Windows 中为 <code>\\wsl$\Ubuntu</code>；</li>
+      <li>断点调试：安装 C/C++ 扩展后，可直接在 VS Code 中设置断点调试 Linux 下的代码；</li>
+      <li>切换环境：点击 VS Code 左下角「WSL: Ubuntu」，可快速断开/切换 WSL 环境；</li>
+      <li>同步设置：安装「Settings Sync」扩展，同步 Windows 和 WSL 中的 VS Code 设置。</li>
+    </ul>
+
+    <!-- 返回主页按钮 -->
+    <a href="index.html" class="back-btn">← 返回我的主页</a>
+  </div>
+</body>
+</html>
