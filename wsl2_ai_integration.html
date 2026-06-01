@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WSL2 + Drogon 深度接入本地 AI 推理助手 | 秋风的技术笔记</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #06b6d4;
+      --primary-dark: #0891b2;
+      --code-bg: #111827;
+      --code-text: #e5e7eb;
+      --tip-bg: #f0fdfa;
+      --tip-border: #0d9488;
+      --warn-bg: #fff7ed;
+      --warn-border: #f97316;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: radial-gradient(circle at top left, #ecfeff 0, transparent 35%), var(--bg);
+      font-family: system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      line-height: 1.82;
+      padding: 2rem 1rem;
+    }
+    .page { max-width: 1120px; margin: 0 auto; }
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #043545 100%);
+      color: #fff; border-radius: 28px; padding: 3rem 2.5rem;
+      box-shadow: 0 20px 42px -18px rgba(6, 182, 212, 0.4); margin-bottom: 1.5rem;
+    }
+    .hero .tag {
+      display: inline-flex; align-items: center; background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.25); padding: 0.35rem 0.8rem; border-radius: 999px; font-size: 0.95rem; margin-bottom: 1rem;
+    }
+    h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); line-height: 1.2; margin-bottom: 1rem; letter-spacing: -0.04em; }
+    .layout { display: grid; grid-template-columns: 260px 1fr; gap: 1.5rem; align-items: start; }
+    .toc {
+      position: sticky; top: 1rem; background: var(--card); border: 1px solid var(--border);
+      border-radius: 22px; padding: 1.2rem; box-shadow: 0 12px 28px -18px rgba(15, 23, 42, 0.25);
+    }
+    .toc h2 { font-size: 1rem; margin-bottom: 0.7rem; color: #0f172a; border: 0; padding: 0; }
+    .toc a { display: block; color: var(--muted); text-decoration: none; font-size: 0.95rem; padding: 0.32rem 0; }
+    .toc a:hover { color: var(--primary-dark); transform: translateX(2px); }
+    main { background: var(--card); border: 1px solid var(--border); border-radius: 28px; padding: 2.25rem; box-shadow: 0 18px 42px -24px rgba(15, 23, 42, 0.35); }
+    section { margin-bottom: 2.6rem; scroll-margin-top: 1.2rem; }
+    h2 { color: #0f172a; font-size: 1.55rem; margin-bottom: 1rem; padding-left: 0.95rem; border-left: 5px solid var(--primary); }
+    p { margin-bottom: 1rem; font-size: 1.04rem; }
+    pre { background: var(--code-bg); color: var(--code-text); border-radius: 16px; padding: 1rem 1.1rem; overflow-x: auto; margin: 1rem 0 1.4rem; font-size: 0.96rem; font-family: monospace; }
+    .tip, .warning { border-radius: 16px; padding: 1rem 1.15rem; margin: 1rem 0 1.35rem; }
+    .tip { background: var(--tip-bg); border-left: 4px solid var(--tip-border); }
+    .warning { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+    .back-btn { display: inline-block; margin-top: 1rem; padding: 0.78rem 1.45rem; background: var(--primary); color: white; text-decoration: none; border-radius: 999px; }
+    .back-btn:hover { background: var(--primary-dark); }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .toc { position: static; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="tag">边缘 AI 集成 · 异步流通道 · 真正打字机</div>
+      <h1>基于 llama.cpp 与 Drogon SSE 的流式本地 AI 助手</h1>
+      <p>本实践文档详细记录了在本地 WSL 环境下编译大模型推理引擎、打通 MySQL 历史记录会话表，并利用服务端事件发送（SSE）实现前后端全链路无缝流式输出的硬核操作 [cite: 2, 5, 24, 55]。</p>
+    </header>
+
+    <div class="layout">
+      <aside class="toc">
+        <h2>目录</h2>
+        <a href="#build-llama">1. 编译本地 llama.cpp 算力引擎</a>
+        <a href="#deploy-model">2. 模型下发与本地推理服务唤醒</a>
+        <a href="#mysql-schema">3. 多轮对话持久化表结构</a>
+        <a href="#drogon-sse">4. Drogon 后端异步流转发拦截</a>
+        <a href="#frontend-stream">5. 前端原生 ReadableStream 承接</a>
+      </aside>
+
+      <main>
+        <section id="build-llama">
+          <h2>1. 编译本地 llama.cpp 算力引擎</h2>
+          <p>为了在不需要昂贵显卡的开发机环境下跑通 LLM 对话，我们利用现代 CPU 编译加速套件进行源码级物理重构 [cite: 9, 20]。首先安装基础系统支撑依赖 [cite: 7, 8]：</p>
+          <pre><code>sudo apt update && sudo apt install -y git cmake build-essential curl wget python3 python3-pip unzip ca-certificates</code></pre>
+          <p>获取并编译离线推理底座 [cite: 12, 15]：</p>
+          <pre><code>cd ~/workspace
+mkdir echo-ai && cd echo-ai
+curl -L --http1.1 -o llama.cpp.zip https://codeload.github.com/ggml-org/llama.cpp/zip/refs/heads/master
+unzip llama.cpp.zip && mv llama.cpp-master llama.cpp
+cd llama.cpp
+cmake -B build
+cmake --build build -j2 --target llama-server llama-cli</code></pre>
+        </section>
+
+        <section id="deploy-model">
+          <h2>2. 模型下发与本地推理服务唤醒</h2>
+          <p>考虑到普通宿主机 WSL 的承载极限，我们选用量化小型边缘模型（千问 Qwen2.5-1.5B 4位量化版）进行本地常驻 [cite: 19, 20]：</p>
+          <pre><code>mkdir -p ./models/qwen2.5-1.5b
+wget -c -O ./models/qwen2.5-1.5b/qwen2.5-1.5b-instruct-q4_k_m.gguf https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf</code></pre>
+          <p>启动独立 AI 推理微服务进程，监听本地 18080 端口 [cite: 22, 23]：</p>
+          <pre><code>./build/bin/llama-server \
+  -m ./models/qwen2.5-1.5b/qwen2.5-1.5b-instruct-q4_k_m.gguf \
+  --host 127.0.0.1 --port 18080 -c 2048</code></pre>
+        </section>
+
+        <section id="mysql-schema">
+          <h2>3. 多轮对话持久化表结构设计</h2>
+          <p>为了让 AI 助手具备历史记忆和多会话管理能力，必须打通 MySQL 存储阵列 [cite: 24, 27]。创建会话主表与消息明细表 [cite: 25, 26]：</p>
+          <pre><code>CREATE TABLE IF NOT EXISTS ai_conversations (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    title VARCHAR(100) NOT NULL DEFAULT 'AI Chat',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ai_messages (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    conversation_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    role VARCHAR(20) NOT NULL, -- user / assistant
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);</code></pre>
+        </section>
+
+        <section id="drogon-sse">
+          <h2>4. Drogon 后端异步流转发拦截</h2>
+          <p>如果使用传统的同步等待，模型生成长文本时会导致前端长达数秒的一片死寂，体验极差 [cite: 54]。我们引入现代 **Drogon 异步流式回执（SSE）** 机制进行全量破局 [cite: 55, 56]：</p>
+          <pre><code>// 初始化连接 llama.cpp 的内网 HTTP 客户端
+g_aiClient = drogon::HttpClient::newHttpClient("http://127.0.0.1:18080");
+
+// 注册真正的异步 SSE 传输通道
+app().registerHandler("/api/ai/chat/stream", [](const HttpRequestPtr& req, std::function&lt;void(const HttpResponsePtr&)&gt;&& callback){
+    // 1. 拦截鉴权并提取上下文历史记录 [cite: 33, 63]
+    // 2. 构造同步流式分块响应
+    auto streamResp = HttpResponse::newAsyncStreamResponse([](ResponseStreamPtr stream){
+        // 内部通过 g_aiClient 发送 chunk 阻断请求
+        // 逐行转发 llama.cpp stream 的文本增量语料
+        stream->send("data: {\"content\":\"文本片段\"}\n\n");
+        // 当大模型吐出 [DONE] 标记时，干净断开
+        stream->close();
+    });
+    callback(streamResp);
+});</code></pre>
+        </section>
+
+        <section id="frontend-stream">
+          <h2>5. 前端原生 ReadableStream 承接（真正的打字机）</h2>
+          <p>在前端，摒弃落后的整体渲染方案，利用高级 Fetch API 捕获底层的流式读取器 [cite: 59, 61]：</p>
+          <pre><code>const response = await fetch('/api/ai/chat/stream', { method: 'POST', body: JSON.stringify({ ... }) });
+const reader = response.body.getReader();
+const decoder = new TextDecoder("utf-8");
+
+while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    
+    const chunkText = decoder.decode(value);
+    // 解析 SSE 协议标志 "data: {...}" 并实时追加
+    state.aiMessages[lastIndex].content += parseSseChunk(chunkText);
+    renderAiChat(); // 瞬间驱动局部 DOM 刷新，带来行云流水般的顺畅体验！ [cite: 52]
+}</code></pre>
+          <div class="tip">
+            <strong>验收红线：</strong>启动应用后，左下角显示 WSL 互通，进入 AI 交互面板发送消息，可以看到本地边缘大模型不仅能在后台完美根据历史多轮语料完成连续对话，前端聊天面板更是能逐字展示流畅、毫无阻断的真·打字机特效 [cite: 52, 63, 74]。
+          </div>
+        </section>
+
+        <a href="index.html" class="back-btn">← 返回我的主页</a>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
