@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echo Server：MySQL 持久化用户系统</title>
+    <style>
+:root {
+    --primary-color: #2b6cb0;
+    --primary-dark: #2c5282;
+    --accent-color: #38b2ac;
+    --bg-color: #f7fafc;
+    --panel-bg: #ffffff;
+    --text-color: #2d3748;
+    --muted-color: #718096;
+    --border-color: #e2e8f0;
+    --code-bg: #1a202c;
+    --sidebar-bg: #1f2937;
+    --sidebar-link: #cbd5e0;
+    --sidebar-link-hover: #ffffff;
+    --success-bg: #f0fff4;
+    --success-border: #9ae6b4;
+    --warn-bg: #fffaf0;
+    --warn-border: #fbd38d;
+    --danger-bg: #fff5f5;
+    --danger-border: #feb2b2;
+    --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.7;
+}
+.sidebar {
+    position: fixed; left: 0; top: 0; width: 260px; height: 100vh;
+    background: var(--sidebar-bg); padding: 26px 18px; overflow-y: auto; color: #fff; z-index: 20;
+}
+.sidebar h2 { font-size: 1.35rem; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.15); }
+.sidebar a { display: block; color: var(--sidebar-link); text-decoration: none; padding: 9px 10px; border-radius: 6px; margin-bottom: 4px; font-size: .94rem; transition: .2s; }
+.sidebar a:hover { background: rgba(255,255,255,.1); color: var(--sidebar-link-hover); transform: translateX(3px); }
+.main-content { margin-left: 260px; padding: 34px 44px 56px; max-width: 1240px; }
+header { background: linear-gradient(135deg, #2b6cb0 0%, #2c5282 100%); color: #fff; padding: 34px 36px; border-radius: 14px; margin-bottom: 28px; box-shadow: var(--shadow); }
+header h1 { font-size: 2.1rem; margin-bottom: 8px; letter-spacing: .5px; }
+.meta-info { opacity: .92; font-size: 1rem; }
+section { background: var(--panel-bg); padding: 28px 30px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 6px 18px rgba(15,23,42,.05); border: 1px solid rgba(226,232,240,.85); }
+.section-title { font-size: 1.48rem; margin-bottom: 18px; padding-left: 13px; border-left: 5px solid var(--primary-color); color: var(--primary-dark); }
+h3 { color: #2d3748; margin: 22px 0 10px; font-size: 1.16rem; }
+p { margin-bottom: 12px; }
+.lead { font-size: 1.05rem; color: #374151; }
+.badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; background: #ebf8ff; color: var(--primary-dark); border: 1px solid #bee3f8; font-size: .84rem; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0 22px; background: #fff; }
+th, td { border: 1px solid var(--border-color); padding: 12px 13px; text-align: left; vertical-align: top; }
+th { background: #edf2f7; font-weight: 700; color: #2d3748; }
+tr:nth-child(even) td { background: #fbfdff; }
+ul, ol { margin-left: 24px; margin-bottom: 18px; }
+li { margin-bottom: 8px; }
+code { background: #edf2f7; color: #1a202c; padding: 2px 5px; border-radius: 4px; font-family: "Courier New", Consolas, monospace; font-size: .93em; }
+.route-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 15px; margin-top: 16px; }
+.route-card { border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; background: #fff; transition: .2s; }
+.route-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(15,23,42,.08); }
+.route-card .num { display: inline-block; width: 30px; height: 30px; line-height: 30px; text-align: center; border-radius: 50%; background: var(--primary-color); color: #fff; font-weight: bold; margin-bottom: 10px; }
+.route-card h3 { margin: 0 0 8px; font-size: 1.05rem; color: var(--primary-dark); }
+.route-card p { color: var(--muted-color); font-size: .93rem; margin-bottom: 0; }
+.callout { border-radius: 10px; padding: 15px 17px; margin: 16px 0; border: 1px solid var(--border-color); }
+.callout.success { background: var(--success-bg); border-color: var(--success-border); }
+.callout.warn { background: var(--warn-bg); border-color: var(--warn-border); }
+.callout.danger { background: var(--danger-bg); border-color: var(--danger-border); }
+.code-container { position: relative; margin: 16px 0 22px; border-radius: 8px; overflow: hidden; border: 1px solid #2d3748; }
+.code-toggle-btn { background: #2d3748; color: #fff; border: none; padding: 9px 16px; font-size: .88rem; cursor: pointer; width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+.code-toggle-btn:hover { background: #4a5568; }
+.code-toggle-btn::after { content: "▼ 点击展开完整代码"; font-size: .8rem; background: var(--primary-color); padding: 2px 8px; border-radius: 4px; }
+.code-container.expanded .code-toggle-btn::after { content: "▲ 点击收起代码"; }
+.code-block-wrapper { max-height: 130px; overflow: hidden; transition: max-height .3s ease-out; background: var(--code-bg); position: relative; }
+.code-container.expanded .code-block-wrapper { max-height: 3600px; }
+.code-block-wrapper::after { content: ""; position: absolute; bottom: 0; left: 0; width: 100%; height: 42px; background: linear-gradient(transparent, var(--code-bg)); pointer-events: none; transition: opacity .2s; }
+.code-container.expanded .code-block-wrapper::after { opacity: 0; }
+pre { padding: 16px; color: #edf2f7; font-family: "Courier New", Consolas, monospace; font-size: .9rem; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+.single-cmd pre { background: var(--code-bg); padding: 13px 14px; border-radius: 8px; color: #38b2ac; font-weight: 700; overflow-x: auto; margin: 14px 0 18px; }
+.stage-label { display: inline-block; margin-bottom: 10px; color: #fff; background: var(--primary-color); padding: 3px 10px; border-radius: 999px; font-size: .84rem; font-weight: 700; }
+.footer-note { color: var(--muted-color); font-size: .92rem; text-align: center; margin-top: 24px; }
+@media (max-width: 900px) { .sidebar { position: relative; width: 100%; height: auto; padding: 18px; } .main-content { margin-left: 0; padding: 22px 16px 34px; } header { padding: 26px 22px; } header h1 { font-size: 1.65rem; } section { padding: 22px 18px; } }
+</style>
+</head>
+<body>
+    <nav class="sidebar">
+        <h2>项目导航</h2>
+        <a href="echo-server-learning-route.html">总览</a><a href="echo-server-memory.html">内存版</a><a href="echo-server-mysql.html">MySQL</a><a href="echo-server-posts.html">帖子系统</a><a href="echo-server-comments-likes.html">评论点赞</a><a href="echo-server-pagination.html">分页优化</a><a href="echo-server-performance.html">性能优化</a><a href="echo-server-ai-chat.html">AI 聊天</a>
+        <h2 style="margin-top:24px;">本页目录</h2>
+        <a href="#goal">0. 阶段目标</a><a href="#install">1. 安装并启动 MySQL</a><a href="#schema">2. 数据库与 users 表</a><a href="#test">3. 注册登录验证</a>
+    </nav>
+    <main class="main-content">
+        <header>
+            <h1>Echo Server：MySQL 持久化用户系统</h1>
+            <p class="meta-info">第二阶段：把内存账号升级为 MySQL 持久化账号系统</p>
+            <div class="badge-row"><span class="badge">MySQL</span><span class="badge">数据库</span><span class="badge">Drogon DbClient</span></div>
+        </header>
+        <section id="goal">
+            <h2 class="section-title">0. 阶段目标</h2>
+            <p class="lead">把已经跑通的 /ping、注册、登录接口从内存临时保存升级为 MySQL 持久化保存。完成后服务器重启，账号仍然存在。</p>
+            <table><tr><th>项目</th><th>说明</th></tr>
+                <tr><td>建议位置</td><td>精选作品详情页 / 项目文档页</td></tr>
+                <tr><td>统一风格</td><td>左侧导航、右侧正文、表格说明、折叠代码块、阶段总结。</td></tr>
+                <tr><td>阅读顺序</td><td>建议从总览页进入，再按卡片顺序阅读。</td></tr></table>
+        </section><section id="install">
+            <h2 class="section-title">1. 安装并启动 MySQL</h2>
+            <p class="lead">先保证 MySQL 服务可用，再创建数据库、业务用户和 users 表。</p>
+            <div class="code-container">
+                <button class="code-toggle-btn">代码 / 命令示例</button>
+                <div class="code-block-wrapper"><pre>sudo apt update
+sudo apt install -y mysql-server libmysqlclient-dev
+sudo service mysql start
+sudo service mysql status
+
+# 进入 MySQL 管理终端
+sudo mysql</pre></div>
+            </div>
+        </section><section id="schema">
+            <h2 class="section-title">2. 数据库与 users 表</h2>
+            <p class="lead">统一使用 echo_app 数据库和 echo_user 用户，字符集使用 utf8mb4。</p>
+            <div class="code-container">
+                <button class="code-toggle-btn">代码 / 命令示例</button>
+                <div class="code-block-wrapper"><pre>CREATE DATABASE IF NOT EXISTS echo_app
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS &#x27;echo_user&#x27;@&#x27;localhost&#x27; IDENTIFIED BY &#x27;Echo123456&#x27;;
+GRANT ALL PRIVILEGES ON echo_app.* TO &#x27;echo_user&#x27;@&#x27;localhost&#x27;;
+FLUSH PRIVILEGES;
+
+USE echo_app;
+
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  nickname VARCHAR(50) DEFAULT NULL,
+  avatar_url VARCHAR(255) DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_users_username (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;</pre></div>
+            </div>
+        </section><section id="test">
+            <h2 class="section-title">3. 注册登录验证</h2>
+            <p class="lead">注册接口写入 users 表，登录接口从 MySQL 查询，并返回 demo_token。</p>
+            <div class="code-container">
+                <button class="code-toggle-btn">代码 / 命令示例</button>
+                <div class="code-block-wrapper"><pre>U=&quot;charlie_$(date +%s)&quot;
+
+curl -i -X POST http://127.0.0.1:8080/api/auth/register   -H &quot;Content-Type: application/json&quot;   -d &quot;{&quot;username&quot;:&quot;$U&quot;,&quot;password&quot;:&quot;123456&quot;,&quot;nickname&quot;:&quot;Charlie&quot;}&quot;
+
+curl -i -X POST http://127.0.0.1:8080/api/auth/login   -H &quot;Content-Type: application/json&quot;   -d &quot;{&quot;username&quot;:&quot;$U&quot;,&quot;password&quot;:&quot;123456&quot;}&quot;
+
+mysql -u echo_user -p echo_app -e   &quot;SELECT id, username, password_hash, created_at FROM users ORDER BY id DESC LIMIT 5;&quot;</pre></div>
+            </div>
+        </section>
+        <p class="footer-note">Echo Server 学习记录网页整理版 · 格式统一参考 汇总.html</p>
+    </main>
+    
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.code-container').forEach(function(container) {
+    const btn = container.querySelector('.code-toggle-btn');
+    if (btn) btn.addEventListener('click', function(){ container.classList.toggle('expanded'); });
+  });
+});
+</script>
+
+</body>
+</html>

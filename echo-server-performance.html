@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echo Server：压测、索引、Redis 与限流</title>
+    <style>
+:root {
+    --primary-color: #2b6cb0;
+    --primary-dark: #2c5282;
+    --accent-color: #38b2ac;
+    --bg-color: #f7fafc;
+    --panel-bg: #ffffff;
+    --text-color: #2d3748;
+    --muted-color: #718096;
+    --border-color: #e2e8f0;
+    --code-bg: #1a202c;
+    --sidebar-bg: #1f2937;
+    --sidebar-link: #cbd5e0;
+    --sidebar-link-hover: #ffffff;
+    --success-bg: #f0fff4;
+    --success-border: #9ae6b4;
+    --warn-bg: #fffaf0;
+    --warn-border: #fbd38d;
+    --danger-bg: #fff5f5;
+    --danger-border: #feb2b2;
+    --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.7;
+}
+.sidebar {
+    position: fixed; left: 0; top: 0; width: 260px; height: 100vh;
+    background: var(--sidebar-bg); padding: 26px 18px; overflow-y: auto; color: #fff; z-index: 20;
+}
+.sidebar h2 { font-size: 1.35rem; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.15); }
+.sidebar a { display: block; color: var(--sidebar-link); text-decoration: none; padding: 9px 10px; border-radius: 6px; margin-bottom: 4px; font-size: .94rem; transition: .2s; }
+.sidebar a:hover { background: rgba(255,255,255,.1); color: var(--sidebar-link-hover); transform: translateX(3px); }
+.main-content { margin-left: 260px; padding: 34px 44px 56px; max-width: 1240px; }
+header { background: linear-gradient(135deg, #2b6cb0 0%, #2c5282 100%); color: #fff; padding: 34px 36px; border-radius: 14px; margin-bottom: 28px; box-shadow: var(--shadow); }
+header h1 { font-size: 2.1rem; margin-bottom: 8px; letter-spacing: .5px; }
+.meta-info { opacity: .92; font-size: 1rem; }
+section { background: var(--panel-bg); padding: 28px 30px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 6px 18px rgba(15,23,42,.05); border: 1px solid rgba(226,232,240,.85); }
+.section-title { font-size: 1.48rem; margin-bottom: 18px; padding-left: 13px; border-left: 5px solid var(--primary-color); color: var(--primary-dark); }
+h3 { color: #2d3748; margin: 22px 0 10px; font-size: 1.16rem; }
+p { margin-bottom: 12px; }
+.lead { font-size: 1.05rem; color: #374151; }
+.badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; background: #ebf8ff; color: var(--primary-dark); border: 1px solid #bee3f8; font-size: .84rem; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0 22px; background: #fff; }
+th, td { border: 1px solid var(--border-color); padding: 12px 13px; text-align: left; vertical-align: top; }
+th { background: #edf2f7; font-weight: 700; color: #2d3748; }
+tr:nth-child(even) td { background: #fbfdff; }
+ul, ol { margin-left: 24px; margin-bottom: 18px; }
+li { margin-bottom: 8px; }
+code { background: #edf2f7; color: #1a202c; padding: 2px 5px; border-radius: 4px; font-family: "Courier New", Consolas, monospace; font-size: .93em; }
+.route-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 15px; margin-top: 16px; }
+.route-card { border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; background: #fff; transition: .2s; }
+.route-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(15,23,42,.08); }
+.route-card .num { display: inline-block; width: 30px; height: 30px; line-height: 30px; text-align: center; border-radius: 50%; background: var(--primary-color); color: #fff; font-weight: bold; margin-bottom: 10px; }
+.route-card h3 { margin: 0 0 8px; font-size: 1.05rem; color: var(--primary-dark); }
+.route-card p { color: var(--muted-color); font-size: .93rem; margin-bottom: 0; }
+.callout { border-radius: 10px; padding: 15px 17px; margin: 16px 0; border: 1px solid var(--border-color); }
+.callout.success { background: var(--success-bg); border-color: var(--success-border); }
+.callout.warn { background: var(--warn-bg); border-color: var(--warn-border); }
+.callout.danger { background: var(--danger-bg); border-color: var(--danger-border); }
+.code-container { position: relative; margin: 16px 0 22px; border-radius: 8px; overflow: hidden; border: 1px solid #2d3748; }
+.code-toggle-btn { background: #2d3748; color: #fff; border: none; padding: 9px 16px; font-size: .88rem; cursor: pointer; width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+.code-toggle-btn:hover { background: #4a5568; }
+.code-toggle-btn::after { content: "▼ 点击展开完整代码"; font-size: .8rem; background: var(--primary-color); padding: 2px 8px; border-radius: 4px; }
+.code-container.expanded .code-toggle-btn::after { content: "▲ 点击收起代码"; }
+.code-block-wrapper { max-height: 130px; overflow: hidden; transition: max-height .3s ease-out; background: var(--code-bg); position: relative; }
+.code-container.expanded .code-block-wrapper { max-height: 3600px; }
+.code-block-wrapper::after { content: ""; position: absolute; bottom: 0; left: 0; width: 100%; height: 42px; background: linear-gradient(transparent, var(--code-bg)); pointer-events: none; transition: opacity .2s; }
+.code-container.expanded .code-block-wrapper::after { opacity: 0; }
+pre { padding: 16px; color: #edf2f7; font-family: "Courier New", Consolas, monospace; font-size: .9rem; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+.single-cmd pre { background: var(--code-bg); padding: 13px 14px; border-radius: 8px; color: #38b2ac; font-weight: 700; overflow-x: auto; margin: 14px 0 18px; }
+.stage-label { display: inline-block; margin-bottom: 10px; color: #fff; background: var(--primary-color); padding: 3px 10px; border-radius: 999px; font-size: .84rem; font-weight: 700; }
+.footer-note { color: var(--muted-color); font-size: .92rem; text-align: center; margin-top: 24px; }
+@media (max-width: 900px) { .sidebar { position: relative; width: 100%; height: auto; padding: 18px; } .main-content { margin-left: 0; padding: 22px 16px 34px; } header { padding: 26px 22px; } header h1 { font-size: 1.65rem; } section { padding: 22px 18px; } }
+</style>
+</head>
+<body>
+    <nav class="sidebar">
+        <h2>项目导航</h2>
+        <a href="echo-server-learning-route.html">总览</a><a href="echo-server-memory.html">内存版</a><a href="echo-server-mysql.html">MySQL</a><a href="echo-server-posts.html">帖子系统</a><a href="echo-server-comments-likes.html">评论点赞</a><a href="echo-server-pagination.html">分页优化</a><a href="echo-server-performance.html">性能优化</a><a href="echo-server-ai-chat.html">AI 聊天</a>
+        <h2 style="margin-top:24px;">本页目录</h2>
+        <a href="#goal">0. 阶段定位</a><a href="#bench">1. wrk 压测脚本</a><a href="#index">2. 索引优化</a><a href="#n1">3. N+1 查询改造</a><a href="#redis">4. Redis 缓存与限流</a>
+    </nav>
+    <main class="main-content">
+        <header>
+            <h1>Echo Server：压测、索引、Redis 与限流</h1>
+            <p class="meta-info">第六阶段：从普通 CRUD 项目升级成有高并发意识的社区后端项目</p>
+            <div class="badge-row"><span class="badge">wrk</span><span class="badge">索引优化</span><span class="badge">Redis</span><span class="badge">限流</span></div>
+        </header>
+        <section id="goal">
+            <h2 class="section-title">0. 阶段定位</h2>
+            <p class="lead">这一阶段不是盲目加 Redis，而是先压测、再分析 SQL、再消除 N+1、最后对热点接口做缓存和限流。</p>
+            <table><tr><th>项目</th><th>说明</th></tr>
+                <tr><td>建议位置</td><td>精选作品详情页 / 项目文档页</td></tr>
+                <tr><td>统一风格</td><td>左侧导航、右侧正文、表格说明、折叠代码块、阶段总结。</td></tr>
+                <tr><td>阅读顺序</td><td>建议从总览页进入，再按卡片顺序阅读。</td></tr></table>
+        </section><section id="bench">
+            <h2 class="section-title">1. wrk 压测脚本</h2>
+            <p class="lead">用相同并发参数压测最新帖子、用户主页、帖子详情，记录吞吐和延迟。</p>
+            <div class="code-container">
+                <button class="code-toggle-btn">代码 / 命令示例</button>
+                <div class="code-block-wrapper"><pre>#!/bin/bash
+BASE_URL=&quot;http://127.0.0.1:8080&quot;
+
+echo &quot;压测最新帖子列表&quot;
+wrk -t4 -c100 -d30s -L &quot;$BASE_URL/api/posts/latest?page=1&amp;page_size=20&quot;
+
+echo &quot;压测用户主页&quot;
+wrk -t4 -c100 -d30s -L &quot;$BASE_URL/api/users/home?user_id=1&amp;page=1&amp;page_size=10&quot;
+
+echo &quot;压测帖子详情&quot;
+wrk -t4 -c100 -d30s -L &quot;$BASE_URL/api/posts/detail?post_id=1&quot;</pre></div>
+            </div>
+        </section><section id="index">
+            <h2 class="section-title">2. 索引优化</h2>
+            <p class="lead">围绕 where、join、order by、group by 建索引，让列表和统计查询减少扫描。</p>
+            <div class="code-container">
+                <button class="code-toggle-btn">代码 / 命令示例</button>
+                <div class="code-block-wrapper"><pre>ALTER TABLE posts ADD INDEX idx_posts_id_desc (id);
+ALTER TABLE posts ADD INDEX idx_posts_user_id_id (user_id, id);
+ALTER TABLE comments ADD INDEX idx_comments_post_id_id (post_id, id);
+ALTER TABLE post_likes ADD UNIQUE KEY uk_post_user (post_id, user_id);
+ALTER TABLE post_likes ADD INDEX idx_likes_user_id_post_id (user_id, post_id);
+
+EXPLAIN SELECT * FROM posts ORDER BY id DESC LIMIT 20;</pre></div>
+            </div>
+        </section><section id="n1">
+            <h2 class="section-title">3. N+1 查询改造</h2>
+            <p class="lead">把循环查作者、点赞数、评论数的逻辑改为 JOIN + 聚合。</p>
+            <div class="code-container">
+                <button class="code-toggle-btn">代码 / 命令示例</button>
+                <div class="code-block-wrapper"><pre>SELECT
+  p.id,
+  p.user_id,
+  u.username,
+  COALESCE(u.nickname, &#x27;&#x27;) AS nickname,
+  COALESCE(p.image_url, &#x27;&#x27;) AS image_url,
+  p.content,
+  COALESCE(lc.like_count, 0) AS like_count,
+  COALESCE(cc.comment_count, 0) AS comment_count,
+  CASE WHEN pl_me.user_id IS NULL THEN 0 ELSE 1 END AS liked
+FROM posts p
+JOIN users u ON u.id = p.user_id
+LEFT JOIN post_likes pl_me
+  ON pl_me.post_id = p.id AND pl_me.user_id = ?
+LEFT JOIN (
+  SELECT post_id, COUNT(*) AS like_count FROM post_likes GROUP BY post_id
+) lc ON lc.post_id = p.id
+LEFT JOIN (
+  SELECT post_id, COUNT(*) AS comment_count FROM comments GROUP BY post_id
+) cc ON cc.post_id = p.id
+ORDER BY p.id DESC
+LIMIT ? OFFSET ?;</pre></div>
+            </div>
+        </section><section id="redis">
+            <h2 class="section-title">4. Redis 缓存与限流</h2>
+            <p class="lead">先缓存用户资料和帖子详情，再做热点 key 与限流，为后续点赞 Redis 化和异步落库做准备。</p>
+            <div class="code-container">
+                <button class="code-toggle-btn">代码 / 命令示例</button>
+                <div class="code-block-wrapper"><pre>缓存 key 建议：
+user:profile:{user_id}      -&gt; 用户资料
+post:detail:{post_id}       -&gt; 帖子详情
+rate:ip:{ip}:{minute}       -&gt; IP 限流计数
+rate:user:{user_id}:{minute}-&gt; 登录用户限流计数
+
+读帖子详情流程：
+1. 先 GET post:detail:{post_id}
+2. 命中则直接返回
+3. 未命中查 MySQL
+4. SETEX post:detail:{post_id} 60 JSON
+
+写帖子或删帖子后：
+删除相关缓存，避免旧数据继续返回。</pre></div>
+            </div>
+        </section>
+        <p class="footer-note">Echo Server 学习记录网页整理版 · 格式统一参考 汇总.html</p>
+    </main>
+    
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.code-container').forEach(function(container) {
+    const btn = container.querySelector('.code-toggle-btn');
+    if (btn) btn.addEventListener('click', function(){ container.classList.toggle('expanded'); });
+  });
+});
+</script>
+
+</body>
+</html>
