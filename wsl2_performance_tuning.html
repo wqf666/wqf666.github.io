@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>社区信息流高并发压测优化笔记 | 秋风的技术笔记</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #667eea;
+      --primary-dark: #4f46e5;
+      --code-bg: #111827;
+      --code-text: #e5e7eb;
+      --tip-bg: #eff6ff;
+      --tip-border: #3b82f6;
+      --warn-bg: #fff7ed;
+      --warn-border: #f97316;
+      --ok-bg: #ecfdf5;
+      --ok-border: #10b981;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: radial-gradient(circle at top left, #eef2ff 0, transparent 35%), var(--bg);
+      font-family: system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      line-height: 1.82;
+      padding: 2rem 1rem;
+    }
+    .page { max-width: 1120px; margin: 0 auto; }
+    .hero {
+      background: linear-gradient(135deg, #111827 0%, #312e81 100%);
+      color: #fff; border-radius: 28px; padding: 3rem 2.5rem;
+      box-shadow: 0 20px 42px -18px rgba(49, 46, 129, 0.55); margin-bottom: 1.5rem;
+    }
+    .hero .tag {
+      display: inline-flex; align-items: center; background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.25); padding: 0.35rem 0.8rem; border-radius: 999px; font-size: 0.95rem; margin-bottom: 1rem;
+    }
+    h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); line-height: 1.2; margin-bottom: 1rem; letter-spacing: -0.04em; }
+    .layout { display: grid; grid-template-columns: 260px 1fr; gap: 1.5rem; align-items: start; }
+    .toc {
+      position: sticky; top: 1rem; background: var(--card); border: 1px solid var(--border);
+      border-radius: 22px; padding: 1.2rem; box-shadow: 0 12px 28px -18px rgba(15, 23, 42, 0.25);
+    }
+    .toc h2 { font-size: 1rem; margin-bottom: 0.7rem; color: #0f172a; border: 0; padding: 0; }
+    .toc a { display: block; color: var(--muted); text-decoration: none; font-size: 0.95rem; padding: 0.32rem 0; }
+    .toc a:hover { color: var(--primary-dark); transform: translateX(2px); }
+    main { background: var(--card); border: 1px solid var(--border); border-radius: 28px; padding: 2.25rem; box-shadow: 0 18px 42px -24px rgba(15, 23, 42, 0.35); }
+    section { margin-bottom: 2.6rem; scroll-margin-top: 1.2rem; }
+    h2 { color: #0f172a; font-size: 1.55rem; margin-bottom: 1rem; padding-left: 0.95rem; border-left: 5px solid var(--primary); }
+    h3 { color: #334155; font-size: 1.18rem; margin: 1.35rem 0 0.75rem; }
+    p { margin-bottom: 1rem; font-size: 1.04rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.6rem; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    th, td { text-align: left; padding: 0.78rem 0.85rem; border-bottom: 1px solid var(--border); }
+    th { background: #f1f5f9; color: #0f172a; font-weight: 700; }
+    .tip, .warning { border-radius: 16px; padding: 1rem 1.15rem; margin: 1rem 0 1.35rem; }
+    .tip { background: var(--tip-bg); border-left: 4px solid var(--tip-border); }
+    .warning { background: var(--warn-bg); border-left: 4px solid var(--warn-border); }
+    pre { background: var(--code-bg); color: var(--code-text); border-radius: 16px; padding: 1rem 1.1rem; overflow-x: auto; margin: 1rem 0 1.4rem; font-size: 0.96rem; font-family: monospace; }
+    .back-btn { display: inline-block; margin-top: 1rem; padding: 0.78rem 1.45rem; background: var(--primary); color: white; text-decoration: none; border-radius: 999px; }
+    .back-btn:hover { background: var(--primary-dark); }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .toc { position: static; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="tag">性能调优 · 高并发压力测试 · SQL 重构</div>
+      <h1>社区信息流性能攻坚：抗 N+1 级联同步查库</h1>
+      <p>本笔记详细记录了如何从传统粗暴的 CRUD 业务逻辑，升级为具备高并发意识的优秀后端项目。涵盖 wrk 脚本设计、N+1 灾难成因，以及集合级聚合查询重构 [cite: 500, 503, 504, 550]。</p>
+    </header>
+
+    <div class="layout">
+      <aside class="toc">
+        <h2>目录</h2>
+        <a href="#bench">1. 使用 wrk 构建极限压测</a>
+        <a href="#bottleneck">2. 暴露出的致命瓶颈</a>
+        <a href="#analysis">3. 剖析 N+1 级联查库隐患</a>
+        <a href="#refactor">4. 集合级 SQL 聚合重构</a>
+        <a href="#multicount">5. 主页 4合1 计数器演进</a>
+      </aside>
+
+      <main>
+        <section id="bench">
+          <h2>1. 使用 wrk 构建极限压力测试</h2>
+          <p>在高并发场景下，单凭脑补很难发现底层死锁和传输网络 RTT 损耗 [cite: 81, 135, 602]。我们在 <code>echo-server/scripts/</code> 下新建压测脚本 <code>bench_posts.sh</code> [cite: 505, 506]：</p>
+          <pre><code>#!/bin/bash
+BASE_URL="http://127.0.0.1:8080"
+echo "压测最新帖子列表..."
+wrk -t4 -c100 -d30s -L "$BASE_URL/api/posts/latest?page=1&page_size=20"
+echo "压测用户主页..."
+wrk -t4 -c100 -d30s -L "$BASE_URL/api/users/home?user_id=1&page=1&page_size=10"
+echo "压测帖子详情..."
+wrk -t4 -c100 -d30s -L "$BASE_URL/api/posts/detail?post_id=1"</code></pre>
+          <p>赋予可执行权限并运行 [cite: 518]：</p>
+          <pre><code>chmod +x scripts/bench_posts.sh
+./scripts/bench_posts.sh</code></pre>
+        </section>
+
+        <section id="bottleneck">
+          <h2>2. 暴露出的严重性能瓶颈</h2>
+          <p>在 WSL2 环境下维持 100 个并发连接，进行 30 秒的测试后，wrk 返回的统计回执暴露出明显的吞吐分化 [cite: 512, 522, 523]：</p>
+          <table>
+            <thead>
+              <tr><th>测试接口</th><th>QPS (每秒请求数)</th><th>平均响应时间</th><th>P99 响应时间</th><th>瓶颈状态</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>最新帖子列表</td><td>1834.44</td><td>54.82ms</td><td>508.12ms</td><td>中等 [cite: 525, 528]</td></tr>
+              <tr style="background:#fff7ed;color:#c2410c;font-weight:700;"><td>用户主页</td><td>1044.63</td><td>99.58ms</td><td>1.45s</td><td>严重瓶颈 [cite: 534, 538]</td></tr>
+              <tr><td>帖子详情</td><td>5902.59</td><td>17.40ms</td><td>373.13ms</td><td>优秀 [cite: 543, 546]</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="analysis">
+          <h2>3. 剖析 N+1 级联同步查库隐患</h2>
+          <div class="warning">
+            <strong>致命成因：</strong>当获取一页 10 条帖子列表时，传统的 C++ 代码首先执行 1 次主查询获取帖子基本内容 [cite: 549, 550]。紧接着在内存循环中，由于要拼装作者头像、总点赞数、总评论数、当前登录用户是否点赞，又级联产生 10 次（N次）独立的数据库查询 [cite: 549, 550]！导致阻塞当前 Drogon 工作线程，引发响应剧烈抖动 [cite: 344]。
+          </div>
+          <p>同样，在用户主页接口中，传统的拼装策略如下 [cite: 599]：</p>
+          <pre><code>// 致命的循环同步查库（N+1）隐患代码示范
+auto postCountRows = g_db->execSqlSync("SELECT COUNT(*) FROM posts WHERE user_id = ?", userId);
+auto mediaCountRows = g_db->execSqlSync("SELECT COUNT(*) FROM posts WHERE user_id = ? AND image_url IS NOT NULL", userId);
+auto followerCountRows = g_db->execSqlSync("SELECT COUNT(*) FROM user_follows WHERE following_id = ?", userId);
+// 产生了 4 次独立网络往返 (RTT)，极限压测下瞬间被拖垮！</code></pre>
+        </section>
+
+        <section id="refactor">
+          <h2>4. 集合级高级 SQL 聚合重构</h2>
+          <p>为了消灭 RTT 损耗，我们将业务层循环转交为数据库内核的<strong>集合级操作（Set-based Operation）</strong>，利用预编译占位符一次性拉取 [cite: 551, 590]：</p>
+          <pre><code>SELECT 
+    p.id, p.user_id, u.username,
+    COALESCE(u.nickname, '') AS nickname,
+    COALESCE(u.avatar_url, '') AS avatar_url,
+    p.content, COALESCE(p.image_url, '') AS image_url,
+    DATE_FORMAT(p.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
+    COALESCE(lc.like_count, 0) AS like_count,
+    COALESCE(cc.comment_count, 0) AS comment_count,
+    CASE WHEN pl_me.user_id IS NULL THEN 0 ELSE 1 END AS liked
+FROM posts p
+JOIN users u ON u.id = p.user_id
+LEFT JOIN post_likes pl_me ON pl_me.post_id = p.id AND pl_me.user_id = ?
+LEFT JOIN (
+    SELECT post_id, COUNT(*) AS like_count FROM post_likes GROUP BY post_id
+) lc ON lc.post_id = p.id
+LEFT JOIN (
+    SELECT post_id, COUNT(*) AS comment_count FROM comments GROUP BY post_id
+) cc ON cc.post_id = p.id
+ORDER BY p.id DESC LIMIT ? OFFSET ?;</code></pre>
+          <div class="tip">
+            <strong>重构精髓：</strong>通过 <code>JOIN users u</code> 批量解决作者档案探测，直接干掉了 N 次重复开销 [cite: 595]。利用 <code>GROUP BY</code> 派生表子查询一次性将全量点赞/评论统计打成平面快照挂载在左连接侧，完美消灭 N+1 [cite: 596]！
+          </div>
+        </section>
+
+        <section id="multicount">
+          <h2>5. 用户主页 4合1 多重聚合优化</h2>
+          <p>针对主页计数器被高频刷爆的问题，我们将其重构为单次发送的 4合1 多重聚合查询 [cite: 603]：</p>
+          <pre><code>SELECT
+    (SELECT COUNT(*) FROM posts WHERE user_id = ?) AS post_count,
+    (SELECT COUNT(*) FROM posts WHERE user_id = ? AND image_url IS NOT NULL) AS media_count,
+    (SELECT COUNT(*) FROM user_follows WHERE following_id = ?) AS follower_count,
+    (SELECT COUNT(*) FROM user_follows WHERE follower_id = ?) AS following_count;</code></pre>
+          <p><strong>优化回执：</strong>重构之后，数据库内核只需执行 1 次解析和编译 [cite: 610]，没有多次网络往返阻碍 [cite: 611]。用户主页 QPS 直接由原来的 1044 冲高跃升，彻底扫清了阻碍社区高并发底座的顽疾 [cite: 538, 547]。</p>
+        </section>
+
+        <a href="index.html" class="back-btn">← 返回我的主页</a>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
